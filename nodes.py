@@ -22,8 +22,153 @@ logger = logging.getLogger("IramaAudioToolkit")
 
 
 # -----------------------------
+# Irama Text Save
+# -----------------------------
+
+
+class IramaTextSave:
+    def __init__(self):
+        pass
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "text": ("STRING", {"forceInput": True}),
+                "path": (
+                    "STRING",
+                    {
+                        "default": "./ComfyUI/output/[time(%Y-%m-%d)]",
+                        "multiline": False,
+                    },
+                ),
+                "filename_prefix": ("STRING", {"default": "ComfyUI"}),
+                "filename_delimiter": ("STRING", {"default": "_"}),
+                "filename_number_padding": (
+                    "INT",
+                    {"default": 4, "min": 0, "max": 9, "step": 1},
+                ),
+            },
+            "optional": {
+                "base_file_name": ("STRING", {"default": ""}),
+                "file_extension": ("STRING", {"default": ".txt"}),
+                "encoding": ("STRING", {"default": "utf-8"}),
+                "filename_suffix": ("STRING", {"default": ""}),
+            },
+        }
+
+    OUTPUT_NODE = True
+    RETURN_TYPES = ()
+    FUNCTION = "save_text_file"
+    CATEGORY = "WAS Suite/IO"
+
+    def save_text_file(
+        self,
+        text,
+        path,
+        filename_prefix="ComfyUI",
+        filename_delimiter="_",
+        filename_number_padding=4,
+        base_file_name="",
+        file_extension=".txt",
+        encoding="utf-8",
+        filename_suffix="",
+    ):
+        tokens = TextTokens()
+        path = tokens.parseTokens(path)
+        filename_prefix = tokens.parseTokens(filename_prefix)
+
+        # If base_file_name is provided, prepend it to filename_prefix
+        if base_file_name:
+            filename_prefix = base_file_name + filename_delimiter + filename_prefix
+
+        if not os.path.exists(path):
+            cstr(f"The path `{path}` doesn't exist! Creating it...").warning.print()
+            try:
+                os.makedirs(path, exist_ok=True)
+            except OSError as e:
+                cstr(
+                    f"The path `{path}` could not be created! Is there write access?\n{e}"
+                ).error.print()
+
+        if text.strip() == "":
+            cstr(f"There is no text specified to save! Text is empty.").error.print()
+
+        delimiter = filename_delimiter
+        number_padding = int(filename_number_padding)
+        filename = self.generate_filename(
+            path,
+            filename_prefix,
+            delimiter,
+            number_padding,
+            file_extension,
+            filename_suffix,
+        )
+        file_path = os.path.join(path, filename)
+
+        if isAllowedFilepath(file_path):
+            self.write_text_file(file_path, text, encoding)
+            update_history_text_files(file_path)
+            return (text, {"ui": {"string": text}})
+        else:
+            cstr(
+                f"'{os.path.abspath(file_path)}' is a write-protected path. Please add it to the whitelist file and restart\n=> {WAS_USER_CONFIG_WHITELIST_DIRS_FILE}"
+            ).error.print()
+            raise Exception(
+                f"'{file_path}' is a write-protected path.\nPlease add it to the whitelist file"
+            )
+
+    def generate_filename(
+        self, path, prefix, delimiter, number_padding, extension, suffix
+    ):
+        if number_padding == 0:
+            # If number_padding is 0, don't use a numerical suffix
+            filename = f"{prefix}{suffix}{extension}"
+        else:
+            if delimiter:
+                pattern = f"{re.escape(prefix)}{re.escape(delimiter)}(\\d{{{number_padding}}}){re.escape(suffix)}{re.escape(extension)}"
+            else:
+                pattern = f"{re.escape(prefix)}(\\d{{{number_padding}}}){re.escape(suffix)}{re.escape(extension)}"
+
+            existing_counters = [
+                int(re.search(pattern, filename).group(1))
+                for filename in os.listdir(path)
+                if re.match(pattern, filename) and filename.endswith(extension)
+            ]
+            existing_counters.sort()
+            if existing_counters:
+                counter = existing_counters[-1] + 1
+            else:
+                counter = 1
+            if delimiter:
+                filename = (
+                    f"{prefix}{delimiter}{counter:0{number_padding}}{suffix}{extension}"
+                )
+            else:
+                filename = f"{prefix}{counter:0{number_padding}}{suffix}{extension}"
+
+            while os.path.exists(os.path.join(path, filename)):
+                counter += 1
+                if delimiter:
+                    filename = f"{prefix}{delimiter}{counter:0{number_padding}}{suffix}{extension}"
+                else:
+                    filename = f"{prefix}{counter:0{number_padding}}{suffix}{extension}"
+
+        return filename
+
+    def write_text_file(self, file, content, encoding):
+        try:
+            with open(file, "w", encoding=encoding, newline="\n") as f:
+                f.write(content)
+        except OSError:
+            cstr(f"Unable to save file `{file}`").error.print()
+
+
+# -----------------------------
 # Irama Audio Batch Stitcher
 # -----------------------------
+
+
 class IramaAudioBatchStitcher:
     """
     Automatically concatenates audio batch from Qwen3-TTS, trimming silence
@@ -459,7 +604,7 @@ class IramaLoadTextFromFile:
         return files
 
     RETURN_TYPES = ("STRING", "STRING")
-    RETURN_NAMES = ("text", "basename")
+    RETURN_NAMES = ("text", "base_file_name")
     FUNCTION = "load_text"
     CATEGORY = "🎧️ Irama Audio Toolkit"
     DESCRIPTION = (
@@ -580,7 +725,7 @@ class IramaSaveAudio(IO.ComfyNode):
                 IO.Audio.Input("audio"),
                 IO.String.Input("filename_prefix", default="audio/ComfyUI"),
                 IO.String.Input(
-                    "filename",
+                    "base_file_name",
                     default="",
                     tooltip="Optional base filename (e.g. story_01). If set, it is prepended to filename_prefix.",
                 ),
@@ -591,12 +736,12 @@ class IramaSaveAudio(IO.ComfyNode):
 
     @classmethod
     def execute(
-        cls, audio, filename_prefix="audio/ComfyUI", filename="", format="flac"
+        cls, audio, filename_prefix="audio/ComfyUI", base_file_name="", format="flac"
     ) -> IO.NodeOutput:
-        if filename:
+        if base_file_name:
             if not filename_prefix.endswith("/"):
                 filename_prefix = filename_prefix + "/"
-            filename_prefix = filename_prefix + filename
+            filename_prefix = filename_prefix + base_file_name
 
         return IO.NodeOutput(
             ui=UI.AudioSaveHelper.get_save_audio_ui(
@@ -621,7 +766,7 @@ class IramaSaveAudioMP3(IO.ComfyNode):
                 IO.Audio.Input("audio"),
                 IO.String.Input("filename_prefix", default="audio/ComfyUI"),
                 IO.String.Input(
-                    "filename",
+                    "base_file_name",
                     default="",
                     tooltip="Optional base filename (e.g. story_01). If set, it is prepended to filename_prefix.",
                 ),
@@ -636,14 +781,14 @@ class IramaSaveAudioMP3(IO.ComfyNode):
         cls,
         audio,
         filename_prefix="audio/ComfyUI",
-        filename="",
+        base_file_name="",
         format="mp3",
         quality="128k",
     ) -> IO.NodeOutput:
-        if filename:
+        if base_file_name:
             if not filename_prefix.endswith("/"):
                 filename_prefix = filename_prefix + "/"
-            filename_prefix = filename_prefix + filename
+            filename_prefix = filename_prefix + base_file_name
 
         return IO.NodeOutput(
             ui=UI.AudioSaveHelper.get_save_audio_ui(
@@ -669,7 +814,7 @@ class IramaSaveAudioOpus(IO.ComfyNode):
                 IO.Audio.Input("audio"),
                 IO.String.Input("filename_prefix", default="audio/ComfyUI"),
                 IO.String.Input(
-                    "filename",
+                    "base_file_name",
                     default="",
                     tooltip="Optional base filename (e.g. story_01). If set, it is prepended to filename_prefix.",
                 ),
@@ -688,14 +833,14 @@ class IramaSaveAudioOpus(IO.ComfyNode):
         cls,
         audio,
         filename_prefix="audio/ComfyUI",
-        filename="",
+        base_file_name="",
         format="opus",
         quality="128k",
     ) -> IO.NodeOutput:
-        if filename:
+        if base_file_name:
             if not filename_prefix.endswith("/"):
                 filename_prefix = filename_prefix + "/"
-            filename_prefix = filename_prefix + filename
+            filename_prefix = filename_prefix + base_file_name
 
         return IO.NodeOutput(
             ui=UI.AudioSaveHelper.get_save_audio_ui(
