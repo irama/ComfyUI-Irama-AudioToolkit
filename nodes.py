@@ -60,7 +60,7 @@ class IramaSaveTextFile:
     OUTPUT_NODE = True
     RETURN_TYPES = ()
     FUNCTION = "save_text_file"
-    CATEGORY = "WAS Suite/IO"
+    CATEGORY = "🎧️ Irama Audio Toolkit"
 
     def save_text_file(
         self,
