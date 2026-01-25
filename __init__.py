@@ -7,6 +7,7 @@ from .nodes import (
     IramaSaveAudio,
     IramaSaveAudioMP3,
     IramaSaveAudioOpus,
+    IramaSaveTextFile,
 )
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

@@ -26,7 +26,7 @@ logger = logging.getLogger("IramaAudioToolkit")
 # -----------------------------
 
 
-class IramaTextSave:
+class IramaSaveTextFile:
     def __init__(self):
         pass
 
@@ -865,6 +865,7 @@ NODE_CLASS_MAPPINGS = {
     "IramaSaveAudio": IramaSaveAudio,
     "IramaSaveAudioMP3": IramaSaveAudioMP3,
     "IramaSaveAudioOpus": IramaSaveAudioOpus,
+    "IramaSaveTextFile": IramaSaveTextFile,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -874,4 +875,5 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "IramaSaveAudio": "💾 Irama Save Audio (FLAC)",
     "IramaSaveAudioMP3": "💾 Irama Save Audio (MP3)",
     "IramaSaveAudioOpus": "💾 Irama Save Audio (Opus)",
+    "IramaSaveTextFile": "💾 Irama Save Text File",
 }
