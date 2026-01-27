@@ -1,6 +1,9 @@
 import hashlib
 import logging
 import os
+import re
+import socket
+import time
 
 import folder_paths
 import librosa
@@ -19,6 +22,71 @@ import comfy.model_management
 from comfy_api.latest import IO, UI
 
 logger = logging.getLogger("IramaAudioToolkit")
+
+
+# -----------------------------
+# Text token support (no WDB)
+# -----------------------------
+
+
+class TextTokens:
+    def __init__(self):
+        # Built-in tokens (no persistence)
+        self.custom_tokens = {}
+
+        self.tokens = {
+            "[time]": str(time.time()).replace(".", "_"),
+            "[hostname]": socket.gethostname(),
+            "[cuda_device]": str(comfy.model_management.get_torch_device()),
+            "[cuda_name]": str(
+                comfy.model_management.get_torch_device_name(
+                    device=comfy.model_management.get_torch_device()
+                )
+            ),
+        }
+
+        if "." in self.tokens["[time]"]:
+            self.tokens["[time]"] = self.tokens["[time]"].split(".")[0]
+
+        try:
+            self.tokens["[user]"] = os.getlogin() if os.getlogin() else "null"
+        except Exception:
+            self.tokens["[user]"] = "null"
+
+    def addToken(self, name, value):
+        self.custom_tokens[name] = value
+
+    def removeToken(self, name):
+        self.custom_tokens.pop(name, None)
+
+    def format_time(self, format_code):
+        return time.strftime(format_code, time.localtime(time.time()))
+
+    def parseTokens(self, text: str) -> str:
+        tokens = self.tokens.copy()
+        if self.custom_tokens:
+            tokens.update(self.custom_tokens)
+
+        # Update [time] on each call
+        tokens["[time]"] = str(time.time())
+        if "." in tokens["[time]"]:
+            tokens["[time]"] = tokens["[time]"].split(".")[0]
+
+        # Simple tokens
+        for token, value in tokens.items():
+            if token.startswith("[time("):
+                continue
+            pattern = re.compile(re.escape(token))
+            text = pattern.sub(value, text)
+
+        # [time(%Y-%m-%d__%H-%M-%S)] style tokens
+        def replace_custom_time(match):
+            format_code = match.group(1)
+            return self.format_time(format_code)
+
+        text = re.sub(r"\[time\((.*?)\)\]", replace_custom_time, text)
+
+        return text
 
 
 # -----------------------------
@@ -92,7 +160,7 @@ class IramaSaveTextFile:
                 ).error.print()
 
         if text.strip() == "":
-            cstr(f"There is no text specified to save! Text is empty.").error.print()
+            cstr("There is no text specified to save! Text is empty.").error.print()
 
         delimiter = filename_delimiter
         number_padding = int(filename_number_padding)
@@ -104,6 +172,7 @@ class IramaSaveTextFile:
             file_extension,
             filename_suffix,
         )
+
         file_path = os.path.join(path, filename)
 
         if isAllowedFilepath(file_path):
@@ -112,10 +181,13 @@ class IramaSaveTextFile:
             return (text, {"ui": {"string": text}})
         else:
             cstr(
-                f"'{os.path.abspath(file_path)}' is a write-protected path. Please add it to the whitelist file and restart\n=> {WAS_USER_CONFIG_WHITELIST_DIRS_FILE}"
+                f"'{os.path.abspath(file_path)}' is a write-protected path. "
+                f"Please add it to the whitelist file and restart\n"
+                f"=> {WAS_USER_CONFIG_WHITELIST_DIRS_FILE}"
             ).error.print()
             raise Exception(
-                f"'{file_path}' is a write-protected path.\nPlease add it to the whitelist file"
+                f"'{file_path}' is a write-protected path.\n"
+                f"Please add it to the whitelist file"
             )
 
     def generate_filename(
@@ -126,20 +198,33 @@ class IramaSaveTextFile:
             filename = f"{prefix}{suffix}{extension}"
         else:
             if delimiter:
-                pattern = f"{re.escape(prefix)}{re.escape(delimiter)}(\\d{{{number_padding}}}){re.escape(suffix)}{re.escape(extension)}"
+                pattern = (
+                    f"{re.escape(prefix)}"
+                    f"{re.escape(delimiter)}"
+                    f"(\\d{{{number_padding}}})"
+                    f"{re.escape(suffix)}"
+                    f"{re.escape(extension)}"
+                )
             else:
-                pattern = f"{re.escape(prefix)}(\\d{{{number_padding}}}){re.escape(suffix)}{re.escape(extension)}"
+                pattern = (
+                    f"{re.escape(prefix)}"
+                    f"(\\d{{{number_padding}}})"
+                    f"{re.escape(suffix)}"
+                    f"{re.escape(extension)}"
+                )
 
             existing_counters = [
                 int(re.search(pattern, filename).group(1))
                 for filename in os.listdir(path)
                 if re.match(pattern, filename) and filename.endswith(extension)
             ]
+
             existing_counters.sort()
             if existing_counters:
                 counter = existing_counters[-1] + 1
             else:
                 counter = 1
+
             if delimiter:
                 filename = (
                     f"{prefix}{delimiter}{counter:0{number_padding}}{suffix}{extension}"
@@ -150,7 +235,10 @@ class IramaSaveTextFile:
             while os.path.exists(os.path.join(path, filename)):
                 counter += 1
                 if delimiter:
-                    filename = f"{prefix}{delimiter}{counter:0{number_padding}}{suffix}{extension}"
+                    filename = (
+                        f"{prefix}{delimiter}{counter:0{number_padding}}"
+                        f"{suffix}{extension}"
+                    )
                 else:
                     filename = f"{prefix}{counter:0{number_padding}}{suffix}{extension}"
 
@@ -173,7 +261,6 @@ class IramaAudioBatchStitcher:
     """
     Automatically concatenates audio batch from Qwen3-TTS, trimming silence
     from the end of each chunk and inserting configurable silence between chunks.
-
     Now supports:
     - audio: single AUDIO dict {"waveform": (B,C,T), "sample_rate": sr}
     - audio: list of AUDIO dicts, each with {"waveform": (B,C,T), "sample_rate": sr}
@@ -255,7 +342,8 @@ class IramaAudioBatchStitcher:
                 wf = wf.unsqueeze(0)
             elif wf.ndim != 3:
                 raise ValueError(
-                    f"[IramaAudioBatchStitcher] Expected waveform with shape (B,C,T) or (C,T), got {wf.shape}"
+                    "[IramaAudioBatchStitcher] Expected waveform with shape (B,C,T) or (C,T), "
+                    f"got {wf.shape}"
                 )
 
             # Split batch into individual chunks
@@ -285,7 +373,6 @@ class IramaAudioBatchStitcher:
 
         gap_samples = int((gap_duration_ms / 1000.0) * sample_rate)
         channels = chunk_waveforms[0].shape[1]
-
         silence_gap = (
             torch.zeros(
                 (1, channels, gap_samples),
@@ -367,24 +454,23 @@ class IramaAudioBatchStitcher:
 # -----------------------------
 # Irama Audio Speed Correction
 # -----------------------------
+
+
 class IramaAudioSpeedCorrection:
     """
     Change playback speed of AUDIO using librosa, Rubberband, or resample methods.
-
     - speed < 1.0 = slower
     - speed > 1.0 = faster
-
     backends:
-      - librosa   : phase-vocoder time-stretch
-      - rubberband: high-quality time-stretch (needs pyrubberband + rubberband CLI)
-      - resample: resample-in-time (natural slowdown, pitch preserved, minimal artifacts)
+    - librosa : phase-vocoder time-stretch
+    - rubberband: high-quality time-stretch (needs pyrubberband + rubberband CLI)
+    - resample: resample-in-time (natural slowdown, pitch preserved, minimal artifacts)
     """
 
     @classmethod
     def INPUT_TYPES(cls):
         backends = ["librosa", "rubberband", "resample"]
         default_backend = "rubberband" if HAS_PYRUBBERBAND else "librosa"
-
         return {
             "required": {
                 "audio": ("AUDIO",),
@@ -487,9 +573,8 @@ class IramaAudioSpeedCorrection:
     def _apply_resample(self, waveform, sr, speed):
         """
         Resample in time: change number of samples so that speed semantics match:
-
-          speed < 1.0 => slower (more samples)
-          speed > 1.0 => faster (fewer samples)
+        speed < 1.0 => slower (more samples)
+        speed > 1.0 => faster (fewer samples)
         """
         b, c, t = waveform.shape
         speed = float(max(0.5, min(2.0, speed)))
@@ -503,8 +588,8 @@ class IramaAudioSpeedCorrection:
             )
 
         new_length = int(t / speed)
-
         resampled_list = []
+
         for bi in range(b):
             chan_resampled = []
             for ci in range(c):
@@ -549,13 +634,14 @@ class IramaAudioSpeedCorrection:
 # -----------------------------
 # Irama Load Text From File
 # -----------------------------
+
+
 class IramaLoadTextFromFile:
     """
     Load text content from a .txt file in ComfyUI input/output/temp folders.
-
     Outputs:
-      - text: file contents
-      - basename: filename without extension (e.g. 'story_01' from 'story_01.txt')
+    - text: file contents
+    - basename: filename without extension (e.g. 'story_01' from 'story_01.txt')
     """
 
     @classmethod
@@ -714,6 +800,8 @@ class IramaLoadTextFromFile:
 # -----------------------------
 # Irama Save Audio Nodes (IO API)
 # -----------------------------
+
+
 class IramaSaveAudio(IO.ComfyNode):
     @classmethod
     def define_schema(cls):
@@ -727,7 +815,10 @@ class IramaSaveAudio(IO.ComfyNode):
                 IO.String.Input(
                     "base_file_name",
                     default="",
-                    tooltip="Optional base filename (e.g. story_01). If set, it is prepended to filename_prefix.",
+                    tooltip=(
+                        "Optional base filename (e.g. story_01). "
+                        "If set, it is prepended to filename_prefix."
+                    ),
                 ),
             ],
             hidden=[IO.Hidden.prompt, IO.Hidden.extra_pnginfo],
@@ -752,7 +843,8 @@ class IramaSaveAudio(IO.ComfyNode):
             )
         )
 
-    save_flac = execute  # TODO: remove
+
+save_flac = IramaSaveAudio.execute  # TODO: remove
 
 
 class IramaSaveAudioMP3(IO.ComfyNode):
@@ -768,7 +860,10 @@ class IramaSaveAudioMP3(IO.ComfyNode):
                 IO.String.Input(
                     "base_file_name",
                     default="",
-                    tooltip="Optional base filename (e.g. story_01). If set, it is prepended to filename_prefix.",
+                    tooltip=(
+                        "Optional base filename (e.g. story_01). "
+                        "If set, it is prepended to filename_prefix."
+                    ),
                 ),
                 IO.Combo.Input("quality", options=["V0", "128k", "320k"], default="V0"),
             ],
@@ -800,7 +895,8 @@ class IramaSaveAudioMP3(IO.ComfyNode):
             )
         )
 
-    save_mp3 = execute  # TODO: remove
+
+save_mp3 = IramaSaveAudioMP3.execute  # TODO: remove
 
 
 class IramaSaveAudioOpus(IO.ComfyNode):
@@ -816,7 +912,10 @@ class IramaSaveAudioOpus(IO.ComfyNode):
                 IO.String.Input(
                     "base_file_name",
                     default="",
-                    tooltip="Optional base filename (e.g. story_01). If set, it is prepended to filename_prefix.",
+                    tooltip=(
+                        "Optional base filename (e.g. story_01). "
+                        "If set, it is prepended to filename_prefix."
+                    ),
                 ),
                 IO.Combo.Input(
                     "quality",
@@ -852,12 +951,14 @@ class IramaSaveAudioOpus(IO.ComfyNode):
             )
         )
 
-    save_opus = execute  # TODO: remove
+
+save_opus = IramaSaveAudioOpus.execute  # TODO: remove
 
 
 # -----------------------------
 # Classic API mappings
 # -----------------------------
+
 NODE_CLASS_MAPPINGS = {
     "IramaAudioBatchStitcher": IramaAudioBatchStitcher,
     "IramaAudioSpeedCorrection": IramaAudioSpeedCorrection,
