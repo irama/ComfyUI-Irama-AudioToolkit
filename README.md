@@ -24,7 +24,7 @@ To use rubberband you will need to install it from https://breakfastquay.com/rub
 
 ## Acknowledgments
 
-- The original ComfyUI Nodes that were enhanced. Thank you ComfyUI!
+- The original ComfyUI Nodes that were enhanced, including a node from [WAS Node Suite](https://github.com/WASasquatch/was-node-suite-comfyui). Thank you!
 
 
 ## License
