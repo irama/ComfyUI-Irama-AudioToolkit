@@ -175,20 +175,9 @@ class IramaSaveTextFile:
 
         file_path = os.path.join(path, filename)
 
-        if isAllowedFilepath(file_path):
-            self.write_text_file(file_path, text, encoding)
-            update_history_text_files(file_path)
-            return (text, {"ui": {"string": text}})
-        else:
-            cstr(
-                f"'{os.path.abspath(file_path)}' is a write-protected path. "
-                f"Please add it to the whitelist file and restart\n"
-                f"=> {WAS_USER_CONFIG_WHITELIST_DIRS_FILE}"
-            ).error.print()
-            raise Exception(
-                f"'{file_path}' is a write-protected path.\n"
-                f"Please add it to the whitelist file"
-            )
+        # Directly write the file, no whitelist/history checks
+        self.write_text_file(file_path, text, encoding)
+        return (text, {"ui": {"string": text}})
 
     def generate_filename(
         self, path, prefix, delimiter, number_padding, extension, suffix
@@ -249,7 +238,7 @@ class IramaSaveTextFile:
             with open(file, "w", encoding=encoding, newline="\n") as f:
                 f.write(content)
         except OSError:
-            cstr(f"Unable to save file `{file}`").error.print()
+            raise OSError(f"Unable to save file `{file}`: {e}")
 
 
 # -----------------------------
