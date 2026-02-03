@@ -4,7 +4,7 @@ from .load_text_from_file import IramaLoadTextFromFile
 from .save_audio import IramaSaveAudio, IramaSaveAudioMP3, IramaSaveAudioOpus
 from .save_text_file import IramaSaveTextFile
 
-NODECLASSMAPPINGS = {
+NODE_CLASS_MAPPINGS = {
     "IramaAudioBatchStitcher": IramaAudioBatchStitcher,
     "IramaAudioSpeedCorrection": IramaAudioSpeedCorrection,
     "IramaLoadTextFromFile": IramaLoadTextFromFile,
@@ -14,7 +14,7 @@ NODECLASSMAPPINGS = {
     "IramaSaveTextFile": IramaSaveTextFile,
 }
 
-NODEDISPLAYNAMEMAPPINGS = {
+NODE_DISPLAY_NAME_MAPPINGS = {
     "IramaAudioBatchStitcher": "🎵 Irama Audio Batch Stitcher (trim silence + gap)",
     "IramaAudioSpeedCorrection": "⚡ Irama Audio Speed Correction",
     "IramaLoadTextFromFile": "📄 Irama Load Text From File",
@@ -25,8 +25,8 @@ NODEDISPLAYNAMEMAPPINGS = {
 }
 
 __all__ = [
-    "NODECLASSMAPPINGS",
-    "NODEDISPLAYNAMEMAPPINGS",
+    "NODE_CLASS_MAPPINGS",
+    "NODE_DISPLAY_NAME_MAPPINGS",
     "IramaAudioBatchStitcher",
     "IramaAudioSpeedCorrection",
     "IramaLoadTextFromFile",
