@@ -11,7 +11,7 @@ class TextTokens:
         self.customtokens = {}
         self.tokens = {
             "time": str(time.time()).replace(".", ""),
-            "hostname": socket.gethname(),
+            "hostname": socket.gethostname(),
             "cuda:device": str(comfy.modelmanagement.get_torch_device()),
             "cuda:name": str(
                 comfy.modelmanagement.get_torch_device_name(
@@ -42,26 +42,26 @@ class TextTokens:
         if self.customtokens:
             tokens.update(self.customtokens)
 
-        # Built-in tokens (no persistence)
+        # Update time on each call
         tokens["time"] = str(time.time())
         if "." in tokens["time"]:
             tokens["time"] = tokens["time"].split(".")[0]
 
-        # Update time on each call
+        # Replace simple tokens
         for token, value in tokens.items():
             if token.startswith("time:"):
                 continue
             pattern = re.compile(re.escape(f"{{{token}}}"))
             text = pattern.sub(value, text)
 
-        # Simple tokens
+        # Replace {time:%Y-%m-%d_%H-%M-%S} style tokens
         def replace_custom_time(match):
             formatcode = match.group(1)
             return self.formattime(formatcode)
 
         text = re.sub(r"\{time:(.*?)\}", replace_custom_time, text)
 
-        return text  # {time:%Y-%m-%d_%H-%M-%S} style tokens
+        return text
 
 
 class cstr(str):
@@ -75,7 +75,6 @@ class cstr(str):
         BLINK = "\33[5m"
         BLINK2 = "\33[6m"
         SELECTED = "\33[7m"
-
         BLACK = "\33[30m"
         RED = "\33[31m"
         GREEN = "\33[32m"
@@ -84,7 +83,6 @@ class cstr(str):
         VIOLET = "\33[35m"
         BEIGE = "\33[36m"
         WHITE = "\33[37m"
-
         GREY = "\33[90m"
         LIGHTRED = "\33[91m"
         LIGHTGREEN = "\33[92m"
@@ -100,7 +98,6 @@ class cstr(str):
     def __getattr__(self, attr):
         if attr.lower().startswith("_cstr"):
             attr = attr[6:]
-
         if hasattr(self.color, attr.upper()):
             return self.__class__(
                 getattr(self.color, attr.upper()) + self + self.color.END
