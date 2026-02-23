@@ -2,7 +2,7 @@ import hashlib
 import logging
 import os
 
-import folderpaths
+import folder_paths
 
 logger = logging.getLogger("IramaAudioToolkit")
 
@@ -45,11 +45,11 @@ class IramaLoadTextFromFile:
     @classmethod
     def _get_files_for_directory(cls, source_dir):
         if source_dir == "input":
-            dir_path = folderpaths.get_input_directory()
+            dir_path = folder_paths.get_input_directory()
         elif source_dir == "output":
-            dir_path = folderpaths.get_output_directory()
+            dir_path = folder_paths.get_output_directory()
         elif source_dir == "temp":
-            dir_path = folderpaths.get_temp_directory()
+            dir_path = folder_paths.get_temp_directory()
         else:
             return []
 
@@ -83,11 +83,11 @@ class IramaLoadTextFromFile:
             source_dir, filename = file.split("/", 1)
 
             if source_dir == "input":
-                dir_path = folderpaths.get_input_directory()
+                dir_path = folder_paths.get_input_directory()
             elif source_dir == "output":
-                dir_path = folderpaths.get_output_directory()
+                dir_path = folder_paths.get_output_directory()
             elif source_dir == "temp":
-                dir_path = folderpaths.get_temp_directory()
+                dir_path = folder_paths.get_temp_directory()
             else:
                 raise Exception(f"Invalid source directory: {source_dir}")
 
@@ -125,11 +125,11 @@ class IramaLoadTextFromFile:
         source_dir, filename = file.split("/", 1)
 
         if source_dir == "input":
-            dir_path = folderpaths.get_input_directory()
+            dir_path = folder_paths.get_input_directory()
         elif source_dir == "output":
-            dir_path = folderpaths.get_output_directory()
+            dir_path = folder_paths.get_output_directory()
         elif source_dir == "temp":
-            dir_path = folderpaths.get_temp_directory()
+            dir_path = folder_paths.get_temp_directory()
         else:
             return f"{file}_invalid_dir"
 
@@ -157,11 +157,11 @@ class IramaLoadTextFromFile:
         source_dir, filename = file.split("/", 1)
 
         if source_dir == "input":
-            dir_path = folderpaths.get_input_directory()
+            dir_path = folder_paths.get_input_directory()
         elif source_dir == "output":
-            dir_path = folderpaths.get_output_directory()
+            dir_path = folder_paths.get_output_directory()
         elif source_dir == "temp":
-            dir_path = folderpaths.get_temp_directory()
+            dir_path = folder_paths.get_temp_directory()
         else:
             return f"Invalid source directory: {source_dir}"
 

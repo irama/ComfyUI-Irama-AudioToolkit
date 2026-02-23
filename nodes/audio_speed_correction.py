@@ -1,4 +1,10 @@
-import librosa
+try:
+    import librosa
+
+    HAS_LIBROSA = True
+except ImportError:
+    HAS_LIBROSA = False
+
 import numpy as np
 import torch
 

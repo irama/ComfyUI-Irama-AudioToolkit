@@ -3,7 +3,7 @@ import re
 import socket
 import time
 
-import comfy.modelmanagement
+import comfy.model_management
 
 
 class TextTokens:
@@ -12,12 +12,8 @@ class TextTokens:
         self.tokens = {
             "time": str(time.time()).replace(".", ""),
             "hostname": socket.gethostname(),
-            "cuda:device": str(comfy.modelmanagement.get_torch_device()),
-            "cuda:name": str(
-                comfy.modelmanagement.get_torch_device_name(
-                    device=comfy.modelmanagement.get_torch_device()
-                )
-            ),
+            "cuda:device": str(comfy.model_management.get_torch_device()),
+            "cuda:name": str(comfy.model_management.get_torch_device_name()),
         }
 
         if "." in self.tokens["time"]:
