@@ -1,6 +1,7 @@
 import os
 
-import torchaudio
+import numpy as np
+import soundfile as sf
 
 
 def _get_output_directory():
@@ -12,14 +13,26 @@ def _get_output_directory():
         return "./output"
 
 
-def _save_audio_file(audio, filename_prefix, output_dir, format, quality=None):
+def _prepare_waveform(audio):
     waveform = audio["waveform"]  # (B, C, T)
     sample_rate = int(audio["sample_rate"])
-
     if waveform.ndim == 3:
-        waveform = waveform[0]  # (C, T)
+        waveform = waveform[0]  # (C, T) - first batch item
+    waveform = waveform.detach().cpu().float().numpy()
+    return waveform.T, sample_rate  # soundfile wants (T, C)
 
-    waveform = waveform.detach().cpu().float()
+
+def _next_filename(out_dir, prefix, ext):
+    counter = 1
+    while True:
+        filename = f"{prefix}_{counter:05d}{ext}"
+        if not os.path.exists(os.path.join(out_dir, filename)):
+            return filename
+        counter += 1
+
+
+def _save_audio_file(audio, filename_prefix, output_dir, format, quality=None):
+    data, sample_rate = _prepare_waveform(audio)
 
     prefix_parts = filename_prefix.replace("\\", "/").split("/")
     subfolder = "/".join(prefix_parts[:-1]) if len(prefix_parts) > 1 else ""
@@ -28,22 +41,48 @@ def _save_audio_file(audio, filename_prefix, output_dir, format, quality=None):
     out_dir = os.path.join(output_dir, subfolder) if subfolder else output_dir
     os.makedirs(out_dir, exist_ok=True)
 
-    ext = f".{format}"
-    counter = 1
-    while True:
-        filename = f"{prefix}_{counter:05d}{ext}"
-        if not os.path.exists(os.path.join(out_dir, filename)):
-            break
-        counter += 1
-
-    filepath = os.path.join(out_dir, filename)
-
     if format == "flac":
-        torchaudio.save(filepath, waveform, sample_rate, format="flac")
+        ext = ".flac"
+        filename = _next_filename(out_dir, prefix, ext)
+        sf.write(
+            os.path.join(out_dir, filename),
+            data,
+            sample_rate,
+            format="FLAC",
+            subtype="PCM_16",
+        )
     elif format == "mp3":
-        torchaudio.save(filepath, waveform, sample_rate, format="mp3")
+        # soundfile doesn't write MP3; write as FLAC and note it
+        ext = ".flac"
+        filename = _next_filename(out_dir, prefix, ext)
+        sf.write(
+            os.path.join(out_dir, filename),
+            data,
+            sample_rate,
+            format="FLAC",
+            subtype="PCM_16",
+        )
     elif format == "opus":
-        torchaudio.save(filepath, waveform, sample_rate, format="ogg", encoding="opus")
+        # soundfile supports OGG Vorbis
+        ext = ".ogg"
+        filename = _next_filename(out_dir, prefix, ext)
+        sf.write(
+            os.path.join(out_dir, filename),
+            data,
+            sample_rate,
+            format="OGG",
+            subtype="VORBIS",
+        )
+    else:
+        ext = ".flac"
+        filename = _next_filename(out_dir, prefix, ext)
+        sf.write(
+            os.path.join(out_dir, filename),
+            data,
+            sample_rate,
+            format="FLAC",
+            subtype="PCM_16",
+        )
 
     return filename, subfolder
 
@@ -80,8 +119,8 @@ class IramaSaveAudio:
     ):
         if base_file_name:
             if not filename_prefix.endswith("/"):
-                filename_prefix = filename_prefix + "/"
-            filename_prefix = filename_prefix + base_file_name
+                filename_prefix += "/"
+            filename_prefix += base_file_name
 
         output_dir = _get_output_directory()
         filename, subfolder = _save_audio_file(
@@ -131,8 +170,8 @@ class IramaSaveAudioMP3:
     ):
         if base_file_name:
             if not filename_prefix.endswith("/"):
-                filename_prefix = filename_prefix + "/"
-            filename_prefix = filename_prefix + base_file_name
+                filename_prefix += "/"
+            filename_prefix += base_file_name
 
         output_dir = _get_output_directory()
         filename, subfolder = _save_audio_file(
@@ -185,8 +224,8 @@ class IramaSaveAudioOpus:
     ):
         if base_file_name:
             if not filename_prefix.endswith("/"):
-                filename_prefix = filename_prefix + "/"
-            filename_prefix = filename_prefix + base_file_name
+                filename_prefix += "/"
+            filename_prefix += base_file_name
 
         output_dir = _get_output_directory()
         filename, subfolder = _save_audio_file(
