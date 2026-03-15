@@ -5,6 +5,10 @@ import time
 
 import comfy.model_management
 
+# Was inside self.tokens below...
+# "cuda:device": str(comfy.model_management.get_torch_device()),
+# "cuda:name": str(comfy.model_management.get_torch_device_name(mm.get_torch_device())),
+
 
 class TextTokens:
     def __init__(self):
@@ -12,8 +16,6 @@ class TextTokens:
         self.tokens = {
             "time": str(time.time()).replace(".", ""),
             "hostname": socket.gethostname(),
-            "cuda:device": str(comfy.model_management.get_torch_device()),
-            "cuda:name": str(comfy.model_management.get_torch_device_name()),
         }
 
         if "." in self.tokens["time"]:

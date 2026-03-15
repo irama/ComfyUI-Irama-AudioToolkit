@@ -2,6 +2,7 @@ from .audio_batch_stitcher import IramaAudioBatchStitcher
 from .audio_speed_correction import IramaAudioSpeedCorrection
 from .load_text_from_file import IramaLoadTextFromFile
 from .save_audio import IramaSaveAudio, IramaSaveAudioMP3, IramaSaveAudioOpus
+from .save_srt import IramaWhisperToSRTText
 from .save_text_file import IramaSaveTextFile
 
 NODE_CLASS_MAPPINGS = {
@@ -12,6 +13,7 @@ NODE_CLASS_MAPPINGS = {
     "IramaSaveAudioMP3": IramaSaveAudioMP3,
     "IramaSaveAudioOpus": IramaSaveAudioOpus,
     "IramaSaveTextFile": IramaSaveTextFile,
+    "IramaWhisperToSRTText": IramaWhisperToSRTText,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -22,6 +24,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "IramaSaveAudioMP3": "💾 Irama Save Audio (MP3)",
     "IramaSaveAudioOpus": "💾 Irama Save Audio (Opus)",
     "IramaSaveTextFile": "💾 Irama Save Text File",
+    "IramaWhisperToSRTText": "🎙 Irama Whisper to SRT Text",
 }
 
 __all__ = [
@@ -34,4 +37,5 @@ __all__ = [
     "IramaSaveAudioMP3",
     "IramaSaveAudioOpus",
     "IramaSaveTextFile",
+    "IramaWhisperToSRTText",
 ]
