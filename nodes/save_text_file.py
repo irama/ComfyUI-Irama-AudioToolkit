@@ -101,13 +101,11 @@ class IramaSaveTextFile:
             subfolder = subfolder[15:]
 
         return {
-            "ui": {"string": [text]},
-            "result": (text,),
-            "outputs": {
-                "text": [
-                    {"filename": filename, "subfolder": subfolder, "type": "output"}
-                ]
+            "ui": {
+                "string": [text],
+                "text_files": [{"filename": filename, "subfolder": subfolder, "type": "output"}],
             },
+            "result": (text,),
         }
 
     def _generate_filename(
