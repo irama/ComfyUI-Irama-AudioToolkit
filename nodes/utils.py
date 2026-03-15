@@ -104,9 +104,6 @@ class cstr(str):
             return self.__class__(
                 getattr(self.color, attr.upper()) + self + self.color.END
             )
-        elif attr == "print":
-            print(self)
-            return self
         else:
             raise AttributeError(f"'cstr' object has no attribute '{attr}'")
 

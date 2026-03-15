@@ -62,16 +62,14 @@ class IramaSaveTextFile:
             filename_prefix = base_file_name + filename_delimiter + filename_prefix
 
         if not os.path.exists(path):
-            cstr(f"[The path {path} doesn't exist! Creating it...]").warning.print()
+            print(cstr(f"[The path {path} doesn't exist! Creating it...]").warning)
             try:
                 os.makedirs(path, exist_ok=True)
             except OSError as e:
-                cstr(
-                    f"[The path {path} could not be created! Is there write access?]\n{e}"
-                ).error.print()
+                print(cstr(f"[The path {path} could not be created! Is there write access?]\n{e}").error)
 
         if not text.strip():
-            cstr("[There is no text specified to save! Text is empty.]").error.print()
+            print(cstr("[There is no text specified to save! Text is empty.]").error)
 
         delimiter = filename_delimiter
         number_padding = int(filename_number_padding)
