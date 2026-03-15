@@ -13,7 +13,7 @@ class IramaWhisperToSRTText:
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES = ("srt_text",)
     FUNCTION = "to_srt"
-    CATEGORY = "Irama"
+    CATEGORY = "Irama Audio Toolkit"
 
     def seconds_to_srt_time(self, seconds):
         hours = int(seconds // 3600)
@@ -30,13 +30,13 @@ class IramaWhisperToSRTText:
 
         srt_lines = []
         for i, entry in enumerate(data, start=1):
-            start_time = self.seconds_to_srt_time(entry['start'])
-            end_time = self.seconds_to_srt_time(entry['end'])
-            text = entry['value']
+            start_time = self.seconds_to_srt_time(entry["start"])
+            end_time = self.seconds_to_srt_time(entry["end"])
+            text = entry["value"]
 
             srt_lines.append(f"{i}")
             srt_lines.append(f"{start_time} --> {end_time}")
             srt_lines.append(text)
             srt_lines.append("")
 
-        return ('\n'.join(srt_lines),)
+        return ("\n".join(srt_lines),)
