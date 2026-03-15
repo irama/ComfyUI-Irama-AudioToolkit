@@ -96,7 +96,11 @@ class cstr(str):
     def __getattr__(self, attr):
         if attr.lower().startswith("_cstr"):
             attr = attr[6:]
-        if hasattr(self.color, attr.upper()):
+        if attr == "warning":
+            return self.__class__(self.color.YELLOW + "WARNING: " + self + self.color.END)
+        elif attr == "error":
+            return self.__class__(self.color.RED + "ERROR: " + self + self.color.END)
+        elif hasattr(self.color, attr.upper()):
             return self.__class__(
                 getattr(self.color, attr.upper()) + self + self.color.END
             )
