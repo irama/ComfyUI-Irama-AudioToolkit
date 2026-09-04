@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Public-repo leak guard. Enable with:  git config core.hooksPath .githooks
+set -euo pipefail
+exec python3 "$(git rev-parse --show-toplevel)/scripts/check-no-leaks.py"

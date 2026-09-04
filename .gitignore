@@ -2,3 +2,7 @@ __pycache__/__init__.cpython-313.pyc
 __pycache__/__init__.cpython-311.pyc
 __pycache__/nodes.cpython-311.pyc
 __pycache__/nodes.cpython-313.pyc
+
+# Private literal list for the leak guard, never published
+.leakrc
+__pycache__/

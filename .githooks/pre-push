@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Public-repo guard, on the way out. An author line is as visible as a file, and
+# the content check cannot see it. Enable with: git config core.hooksPath .githooks
+set -euo pipefail
+ROOT="$(git rev-parse --show-toplevel)"
+Z="0000000000000000000000000000000000000000"
+
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+  [ "$local_sha" = "$Z" ] && continue                     # a branch deletion
+  if [ "$remote_sha" = "$Z" ]; then
+    range="$local_sha --not --remotes"                    # a new branch
+  else
+    range="$remote_sha..$local_sha"
+  fi
+  # shellcheck disable=SC2086
+  python3 "$ROOT/scripts/check-no-leaks.py" --authors $range || exit 1
+done

@@ -1,0 +1,50 @@
+# The leak guard, run where it cannot be skipped.
+#
+# The pre-commit and pre-push hooks are a local convenience and `--no-verify`
+# walks past both, so a hook is not the control — this is.
+name: Publishable
+
+on:
+  push:
+  pull_request:
+  # Re-run the guard without a commit — after rotating the LEAKRC secret,
+  # or to prove which half is running.
+  workflow_dispatch:
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # --authors reads the range being pushed
+
+      - name: Load the private literal list, if this repo has one
+        # .leakrc is gitignored, so CI has no copy of it. Without one the rules
+        # built from private literals — domains, personal email, team names, the
+        # host allowlist — do not run, and the guard covers only the generic
+        # half. Put the file's contents in a repository secret named LEAKRC to
+        # turn them on. A pull request from a fork gets no secrets, which is
+        # correct: it also gets no private list to leak.
+        env:
+          LEAKRC: ${{ secrets.LEAKRC }}
+        run: |
+          if [ -n "$LEAKRC" ]; then
+            printf '%s\n' "$LEAKRC" > .leakrc
+            echo "private rules: ON ($(grep -c . .leakrc) literals)"
+          else
+            echo "private rules: OFF — no LEAKRC secret, generic rules only"
+          fi
+
+      - name: The rules still work
+        run: python3 scripts/check-no-leaks.py --selftest
+
+      - name: Nothing in the tree leaks
+        run: python3 scripts/check-no-leaks.py --all
+
+      - name: No commit is signed with a personal address
+        # An author line is metadata, not a file, so the content scan cannot see
+        # it. Skipped when there is no before-SHA: a new branch, a tag, or a
+        # pull_request event, where the range is not this workflow's to judge.
+        if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
+        run: python3 scripts/check-no-leaks.py --authors ${{ github.event.before }}..${{ github.sha }}
